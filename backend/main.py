@@ -290,56 +290,24 @@ async def upload_profile_picture(file: UploadFile = File(...), current_user: dic
     
     return {"profile_picture_url": file_url}
 
-# --- TASK ROUTES ---
+# --- WEBSOCKETS ---
+from websocket_manager import manager
+from fastapi import WebSocket, WebSocketDisconnect
 
-@app.get("/tasks", response_model=List[Task])
-async def get_tasks(current_user: dict = Depends(get_current_user)):
-    tasks = []
-    # Only fetch tasks belonging to the current user
-    async for task in task_collection.find({"user_id": current_user["username"]}):
-        tasks.append(task_helper(task))
-    return tasks
+@app.websocket("/ws/notifications/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    await manager.connect(websocket, user_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # For now, just echo it back or handle logic
+            await manager.send_personal_message(f"Message text was: {data}", user_id)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user_id)
 
-@app.get("/tasks/pending", response_model=List[Task])
-async def get_pending_tasks(current_user: dict = Depends(get_current_user)):
-    tasks = []
-    async for task in task_collection.find({"status": {"$ne": "done"}, "user_id": current_user["username"]}):
-        tasks.append(task_helper(task))
-    return tasks
+# --- ROUTERS ---
+from routers.projects import router as projects_router
+from routers.tasks import router as tasks_router
 
-@app.post("/tasks", response_model=Task)
-async def add_task(task: Task, current_user: dict = Depends(get_current_user)):
-    existing_task = await task_collection.find_one({"id": task.id, "user_id": current_user["username"]})
-    if existing_task:
-        raise HTTPException(status_code=400, detail="Task with this ID already exists")
-    
-    import datetime
-    task_dict = task.model_dump()
-    task_dict["user_id"] = current_user["username"]
-    task_dict["created_at"] = task_dict.get("created_at") or datetime.datetime.now().isoformat()
-    
-    await task_collection.insert_one(task_dict)
-    return task
-
-@app.put("/tasks/{task_id}", response_model=Task)
-async def complete_task(task_id: int, task_update: Task, current_user: dict = Depends(get_current_user)):
-    updated_task = await task_collection.find_one_and_update(
-        {"id": task_id, "user_id": current_user["username"]},
-        {"$set": {
-            "status": task_update.status,
-            "title": task_update.title,
-            "priority": task_update.priority,
-            "due_date": task_update.due_date
-        }},
-        return_document=True
-    )
-    if updated_task:
-        return task_helper(updated_task)
-    raise HTTPException(status_code=404, detail="Task not found")
-
-@app.delete("/tasks/{task_id}")
-async def delete_task(task_id: int, current_user: dict = Depends(get_current_user)):
-    delete_result = await task_collection.delete_one({"id": task_id, "user_id": current_user["username"]})
-    if delete_result.deleted_count == 1:
-        return {"message": "Task deleted successfully"}
-    raise HTTPException(status_code=404, detail="Task not found")
+app.include_router(projects_router)
+app.include_router(tasks_router)
