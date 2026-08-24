@@ -1,11 +1,13 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { Search, Bell, ArrowLeft, AlertCircle, Clock, ShieldAlert, CheckCircle2, Circle } from 'lucide-react';
+import { Search, Bell, ArrowLeft, AlertCircle, Clock, ShieldAlert, CheckCircle2, Circle, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { AuthContext } from './App';
+import NotificationBell from './NotificationBell';
 import axios from 'axios';
 import { Task, Project } from './types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
+import AddTaskModal from './AddTaskModal';
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -19,23 +21,26 @@ export default function TrackingPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  const fetchTasksAndProjects = async () => {
+    try {
+      const [taskRes, projRes] = await Promise.all([
+        axios.get(`${API_URL}/api/v1/tasks`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+        axios.get(`${API_URL}/api/v1/projects`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      ]);
+      setTasks(taskRes.data);
+      setProjects(projRes.data);
+    } catch (err) {
+      console.error("Failed to fetch tracking data", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [taskRes, projRes] = await Promise.all([
-          axios.get(`${API_URL}/api/v1/tasks`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
-          axios.get(`${API_URL}/api/v1/projects`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
-        ]);
-        setTasks(taskRes.data);
-        setProjects(projRes.data);
-      } catch (err) {
-        console.error("Failed to fetch tracking data", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    fetchTasksAndProjects();
   }, []);
 
   // Compute metrics
@@ -109,9 +114,7 @@ export default function TrackingPage() {
               <Search size={20} className="text-gray-400 mr-2" />
               <input type="text" placeholder="Search..." className="outline-none text-sm text-gray-600 bg-transparent" />
             </div>
-            <button className="text-gray-500 hover:text-gray-700">
-              <Bell size={20} />
-            </button>
+            <NotificationBell />
             <div 
               onClick={() => navigate('/settings')} 
               className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold cursor-pointer"
@@ -187,14 +190,21 @@ export default function TrackingPage() {
                 {highPriorityOverdue.length > 0 ? (
                   <div className="flex flex-col gap-3">
                     {highPriorityOverdue.slice(0,4).map(task => (
-                      <div key={task.id} className="p-3 bg-red-50 rounded-xl border border-red-100 flex items-start gap-3">
+                      <div key={task.id} className="p-3 bg-red-50 rounded-xl border border-red-100 flex items-start gap-3 group">
                         <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={18} />
-                        <div>
+                        <div className="flex-1">
                           <p className="text-sm font-bold text-red-900 leading-tight">{task.title}</p>
                           <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
                             <Clock size={12} /> {task.due_date || 'No Date'}
                           </p>
                         </div>
+                        <button 
+                          onClick={() => { setEditingTask(task); setShowTaskModal(true); }}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-full transition-all shrink-0"
+                          title="Edit Task"
+                        >
+                          <Edit2 size={14} />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -226,6 +236,13 @@ export default function TrackingPage() {
           </div>
         )}
       </div>
+
+      <AddTaskModal 
+        open={showTaskModal} 
+        onClose={() => { setShowTaskModal(false); setEditingTask(null); }}
+        onTaskAdded={fetchTasksAndProjects}
+        editingTask={editingTask}
+      />
     </div>
   );
 }

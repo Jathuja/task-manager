@@ -4,6 +4,7 @@ import { AuthContext } from './App';
 import axios from 'axios';
 import Sidebar from './Sidebar';
 import { useNavigate } from 'react-router-dom';
+import NotificationBell from './NotificationBell';
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -127,9 +128,7 @@ export default function SettingsPage() {
               <Search size={20} className="text-gray-400 mr-2" />
               <input type="text" placeholder="Search..." className="outline-none text-sm text-gray-600 bg-transparent" />
             </div>
-            <button className="text-gray-500 hover:text-gray-700">
-              <Bell size={20} />
-            </button>
+            <NotificationBell />
             <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold cursor-pointer">
               {avatarUrl ? <img src={avatarUrl} alt="avatar" className="w-full h-full rounded-full object-cover" /> : userInitial}
             </div>

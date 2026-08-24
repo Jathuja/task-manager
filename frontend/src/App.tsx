@@ -12,6 +12,7 @@ import ProjectsPage from "./ProjectsPage";
 import InboxPage from "./InboxPage";
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { User } from "./types";
+import { NotificationProvider } from './NotificationContext';
 
 interface AuthContextType {
   user: User | null;
@@ -75,21 +76,23 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
-      <Router>
-        <Routes>
-          <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
-          <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
-          <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
-          <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
-          
-          <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
-          <Route path="/calendar" element={user ? <CalendarPage /> : <Navigate to="/login" />} />
-          <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/login" />} />
-          <Route path="/tracking" element={user ? <TrackingPage /> : <Navigate to="/login" />} />
-          <Route path="/projects" element={user ? <ProjectsPage /> : <Navigate to="/login" />} />
-          <Route path="/inbox" element={user ? <InboxPage /> : <Navigate to="/login" />} />
-        </Routes>
-      </Router>
+      <NotificationProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
+            <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
+            <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
+            <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
+            
+            <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+            <Route path="/calendar" element={user ? <CalendarPage /> : <Navigate to="/login" />} />
+            <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/login" />} />
+            <Route path="/tracking" element={user ? <TrackingPage /> : <Navigate to="/login" />} />
+            <Route path="/projects" element={user ? <ProjectsPage /> : <Navigate to="/login" />} />
+            <Route path="/inbox" element={user ? <InboxPage /> : <Navigate to="/login" />} />
+          </Routes>
+        </Router>
+      </NotificationProvider>
     </AuthContext.Provider>
   );
 }

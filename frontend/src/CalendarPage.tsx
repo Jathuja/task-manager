@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import KanbanBoard from './KanbanBoard';
 import { Task } from './types';
+import NotificationBell from './NotificationBell';
 
 const locales = {
   'en-US': enUS,
@@ -86,6 +87,7 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CustomEvent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [viewMode, setViewMode] = useState<'calendar' | 'kanban'>('kanban');
 
   const fetchTasks = async () => {
@@ -141,10 +143,10 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 overflow-hidden relative">
       
       {/* Sidebar */}
-      <Sidebar onAddTask={() => setIsModalOpen(true)} />
+      <Sidebar onAddTask={() => { setIsModalOpen(true); setEditingTask(null); }} />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col p-8 overflow-y-auto">
@@ -178,7 +180,7 @@ export default function CalendarPage() {
           </div>
           
           <div className="flex items-center gap-4">
-
+            <NotificationBell />
             <div 
               onClick={() => navigate('/settings')}
               className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold cursor-pointer"
@@ -191,7 +193,7 @@ export default function CalendarPage() {
         {/* Content Container */}
         {viewMode === 'kanban' ? (
           <div className="flex-1 overflow-hidden">
-            <KanbanBoard tasks={tasks} setTasks={setTasks} fetchTasks={fetchTasks} />
+            <KanbanBoard tasks={tasks} setTasks={setTasks} fetchTasks={fetchTasks} onEditTask={(t) => { setEditingTask(t); setIsModalOpen(true); }} />
           </div>
         ) : (
           <div className="flex-1 bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
@@ -212,8 +214,9 @@ export default function CalendarPage() {
 
         <AddTaskModal 
           open={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
-          onTaskAdded={fetchTasks} 
+          onClose={() => { setIsModalOpen(false); setEditingTask(null); }} 
+          onTaskAdded={fetchTasks}
+          editingTask={editingTask}
         />
       </div>
     </div>

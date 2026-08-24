@@ -1,9 +1,10 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { Search, Bell, ArrowLeft, FolderPlus, Folder, Activity, Plus, X } from 'lucide-react';
+import { Search, ArrowLeft, FolderPlus, Folder, Plus, X, Trash2, CheckCircle2, Clock, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { AuthContext } from './App';
 import axios from 'axios';
+import NotificationBell from './NotificationBell';
 import { Project, Task } from './types';
 
 const API_URL = "http://127.0.0.1:8000";
@@ -19,6 +20,7 @@ export default function ProjectsPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -44,8 +46,11 @@ export default function ProjectsPage() {
     if (category.toLowerCase().includes('course') || category.toLowerCase().includes('academic')) {
       return { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100', label: 'Academic' };
     }
-    if (category.toLowerCase().includes('startup') || category.toLowerCase().includes('client')) {
+    if (category.toLowerCase().includes('startup')) {
       return { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100', label: 'Startup' };
+    }
+    if (category.toLowerCase().includes('client')) {
+      return { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100', label: 'Client' };
     }
     return { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100', label: 'Personal' };
   };
@@ -61,6 +66,28 @@ export default function ProjectsPage() {
     if (overdueCount > 0) return { label: 'Behind Schedule', color: 'bg-red-500' };
     if (highPriorityPending > 0) return { label: 'At Risk', color: 'bg-amber-500' };
     return { label: 'On Track', color: 'bg-emerald-500' };
+  };
+
+  const getProjectProgress = (projectId: string) => {
+    const projectTasks = tasks.filter(t => t.project_id === projectId);
+    if (projectTasks.length === 0) return { completed: 0, total: 0, percentage: 0 };
+    const completed = projectTasks.filter(t => t.status === 'done').length;
+    const percentage = Math.round((completed / projectTasks.length) * 100);
+    return { completed, total: projectTasks.length, percentage };
+  };
+
+  const deleteProject = async (projectId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // prevent card click
+    if (!window.confirm("Are you sure you want to delete this project?")) return;
+    try {
+      await axios.delete(`${API_URL}/api/v1/projects/${projectId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setProjects(projects.filter(p => p.id !== projectId));
+    } catch (err) {
+      console.error("Failed to delete project", err);
+      alert("Failed to delete project. Please try again.");
+    }
   };
 
   return (
@@ -85,9 +112,7 @@ export default function ProjectsPage() {
               <Search size={20} className="text-gray-400 mr-2" />
               <input type="text" placeholder="Search projects..." className="outline-none text-sm text-gray-600 bg-transparent" />
             </div>
-            <button className="text-gray-500 hover:text-gray-700">
-              <Bell size={20} />
-            </button>
+            <NotificationBell />
             <div 
               onClick={() => navigate('/settings')} 
               className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold cursor-pointer"
@@ -101,7 +126,10 @@ export default function ProjectsPage() {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-lg font-semibold text-gray-800">Your Projects</h2>
           <button 
-            onClick={() => setShowTemplateModal(true)}
+            onClick={() => {
+              setEditingProject(null);
+              setShowTemplateModal(true);
+            }}
             className="flex items-center gap-2 bg-indigo-500 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-600 font-bold text-sm transition-colors shadow-lg shadow-indigo-500/30"
           >
             <FolderPlus size={18} strokeWidth={3} />
@@ -118,41 +146,98 @@ export default function ProjectsPage() {
             ) : projects.map((project, index) => {
               const badge = getCategoryBadge(project.category);
               const health = getProjectHealth(project.id);
+              const progress = getProjectProgress(project.id);
               
+              // Map Priority to Color and Text
+              let priorityColor = "text-amber-600 bg-amber-50 border-amber-100";
+              let priorityText = "🟡 Medium";
+              if (project.priority === "High" || project.priority === "🔴 High") {
+                priorityColor = "text-red-600 bg-red-50 border-red-100";
+                priorityText = "🔴 High";
+              } else if (project.priority === "Low" || project.priority === "🟢 Low") {
+                priorityColor = "text-emerald-600 bg-emerald-50 border-emerald-100";
+                priorityText = "🟢 Low";
+              }
+
+              // Map Status to Color
+              const statusVal = project.status || "Planning";
+              let statusColor = "text-gray-500 bg-gray-100 border-gray-200";
+              if (statusVal === "In Progress") statusColor = "text-indigo-600 bg-indigo-50 border-indigo-100";
+              else if (statusVal === "On Hold") statusColor = "text-amber-600 bg-amber-50 border-amber-100";
+              else if (statusVal === "Completed") statusColor = "text-emerald-600 bg-emerald-50 border-emerald-100";
+              else if (statusVal === "Cancelled") statusColor = "text-red-600 bg-red-50 border-red-100";
+
               return (
-                <div key={project.id || index} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-lg transition-all cursor-pointer group">
+                <div key={project.id || index} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-lg transition-all cursor-pointer group flex flex-col relative h-full">
                   
-                  {/* Top Row: Health & Badge */}
+                  {/* Top Row: Health, Actions & Badge */}
                   <div className="flex justify-between items-start mb-6">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${health.color} animate-pulse`} />
                       <span className="text-xs font-bold text-gray-500">{health.label}</span>
                     </div>
-                    <span className={`px-2.5 py-1 text-[10px] uppercase tracking-wider font-bold rounded-lg border ${badge.bg} ${badge.text} ${badge.border}`}>
-                      {badge.label}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {/* Action Buttons (Hover) */}
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setEditingProject(project); setShowTemplateModal(true); }}
+                          className="p-1.5 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-all"
+                          title="Edit Project"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={(e) => deleteProject(project.id, e)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                          title="Delete Project"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      <span className={`px-2.5 py-1 text-[10px] uppercase tracking-wider font-bold rounded-lg border ${badge.bg} ${badge.text} ${badge.border}`}>
+                        {badge.label}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Icon & Title */}
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform shrink-0">
                       <Folder size={24} />
                     </div>
-                    <h3 className="font-bold text-gray-900 text-lg leading-tight">{project.name}</h3>
-                  </div>
-
-                  {/* Team Members & Invite */}
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-50">
-                    <div className="flex -space-x-2">
-                      {[1,2,3].map(i => (
-                        <div key={i} className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-gray-500">
-                          T{i}
-                        </div>
-                      ))}
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-lg leading-tight line-clamp-1">{project.name}</h3>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border ${priorityColor}`}>
+                          {priorityText}
+                        </span>
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border ${statusColor}`}>
+                          {statusVal}
+                        </span>
+                      </div>
                     </div>
-                    <button className="flex items-center gap-1 text-xs font-bold text-indigo-500 hover:bg-indigo-50 px-2 py-1.5 rounded-lg transition-colors">
-                      <Plus size={14} strokeWidth={3} /> Invite
-                    </button>
+                  </div>
+                  
+                  {project.description && (
+                    <p className="text-sm text-gray-500 line-clamp-2 mb-6 flex-1">{project.description}</p>
+                  )}
+
+                  <div className="mt-auto">
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-50 mb-2">
+                      <span className="text-xs font-bold text-gray-500 flex items-center gap-1.5">
+                        <CheckCircle2 size={14} className={progress.percentage === 100 ? "text-emerald-500" : "text-gray-400"} />
+                        {progress.percentage}% Completed
+                      </span>
+                      <span className="text-xs font-bold text-gray-400">
+                        {progress.completed}/{progress.total} Tasks
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${progress.percentage === 100 ? "bg-emerald-500" : "bg-indigo-500"}`}
+                        style={{ width: `${progress.percentage}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
               );
@@ -177,8 +262,8 @@ export default function ProjectsPage() {
                     <FolderPlus size={24} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">Create New Project</h2>
-                    <p className="text-sm font-semibold text-indigo-500">Start a new workspace</p>
+                    <h2 className="text-xl font-bold text-gray-900">{editingProject ? "Edit Project" : "Create New Project"}</h2>
+                    <p className="text-sm font-semibold text-indigo-500">{editingProject ? "Update workspace details" : "Start a new workspace"}</p>
                   </div>
                 </div>
               </div>
@@ -194,16 +279,24 @@ export default function ProjectsPage() {
                     status: { value: string };
                   };
                   try {
-                    await axios.post(`${API_URL}/api/v1/projects`, {
+                    const payload = {
                       name: target.name.value,
                       category: target.category.value,
                       description: target.description.value,
                       priority: target.priority.value,
                       status: target.status.value
-                    }, {
-                      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-                    });
+                    };
+                    if (editingProject) {
+                      await axios.put(`${API_URL}/api/v1/projects/${editingProject.id}`, payload, {
+                        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                      });
+                    } else {
+                      await axios.post(`${API_URL}/api/v1/projects`, payload, {
+                        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                      });
+                    }
                     setShowTemplateModal(false);
+                    setEditingProject(null);
                     // Refresh data
                     const token = localStorage.getItem('token');
                     const projRes = await axios.get(`${API_URL}/api/v1/projects`, { headers: { Authorization: `Bearer ${token}` } });
@@ -223,6 +316,7 @@ export default function ProjectsPage() {
                       required
                       autoFocus
                       type="text"
+                      defaultValue={editingProject?.name || ""}
                       placeholder="E.g., Website Redesign"
                       className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-medium"
                     />
@@ -233,6 +327,7 @@ export default function ProjectsPage() {
                     <select
                       name="category"
                       required
+                      defaultValue={editingProject?.category || "Personal"}
                       className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-medium text-gray-700"
                     >
                       <option value="Personal">Personal</option>
@@ -248,10 +343,11 @@ export default function ProjectsPage() {
                       <select
                         name="priority"
                         required
+                        defaultValue={editingProject?.priority || "Medium"}
                         className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-medium text-gray-700"
                       >
                         <option value="Low">🟢 Low</option>
-                        <option value="Medium" selected>🟡 Medium</option>
+                        <option value="Medium">🟡 Medium</option>
                         <option value="High">🔴 High</option>
                       </select>
                     </div>
@@ -260,9 +356,10 @@ export default function ProjectsPage() {
                       <select
                         name="status"
                         required
+                        defaultValue={editingProject?.status || "Planning"}
                         className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-medium text-gray-700"
                       >
-                        <option value="Planning" selected>Planning</option>
+                        <option value="Planning">Planning</option>
                         <option value="In Progress">In Progress</option>
                         <option value="On Hold">On Hold</option>
                         <option value="Completed">Completed</option>
@@ -276,6 +373,7 @@ export default function ProjectsPage() {
                     <textarea
                       name="description"
                       rows={3}
+                      defaultValue={editingProject?.description || ""}
                       placeholder="Brief description of the project..."
                       className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-medium resize-none"
                     />
@@ -285,7 +383,7 @@ export default function ProjectsPage() {
                 <div className="flex items-center justify-end gap-3 mt-8">
                   <button
                     type="button"
-                    onClick={() => setShowTemplateModal(false)}
+                    onClick={() => { setShowTemplateModal(false); setEditingProject(null); }}
                     className="px-5 py-2.5 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100 transition-colors"
                   >
                     Cancel
@@ -294,7 +392,7 @@ export default function ProjectsPage() {
                     type="submit"
                     className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-500 hover:bg-indigo-600 shadow-lg shadow-indigo-500/30 transition-all"
                   >
-                    Create Project
+                    {editingProject ? "Save Changes" : "Create Project"}
                   </button>
                 </div>
               </form>

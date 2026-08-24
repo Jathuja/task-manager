@@ -1,11 +1,12 @@
 import React from "react";
 import { Draggable } from "@hello-pangea/dnd";
-import { Clock } from "lucide-react";
+import { Clock, Edit2 } from "lucide-react";
 import { Task } from "./types";
 
 interface TaskCardProps {
   task: Task;
   index: number;
+  onEdit?: (task: Task) => void;
 }
 
 const statusStyles: Record<string, { bg: string, borderLeft: string, text: string, iconColor: string }> = {
@@ -14,7 +15,7 @@ const statusStyles: Record<string, { bg: string, borderLeft: string, text: strin
   "done": { bg: 'bg-[#E3F8F5]', borderLeft: 'border-l-[#02B895]', text: 'text-[#01886D]', iconColor: 'text-[#02B895]' },
 };
 
-export default function TaskCard({ task, index }: TaskCardProps) {
+export default function TaskCard({ task, index, onEdit }: TaskCardProps) {
   const style = statusStyles[task.status] || statusStyles["todo"];
 
   return (
@@ -27,14 +28,27 @@ export default function TaskCard({ task, index }: TaskCardProps) {
           className={`
             mb-4 p-4 rounded-xl shadow-sm border border-transparent border-l-4
             ${style.bg} ${style.borderLeft}
-            transition-all duration-200
-            ${snapshot.isDragging ? 'shadow-xl scale-[1.02] rotate-2 ring-2 ring-indigo-500/20' : 'hover:shadow-md'}
+            transition-all duration-200 group
+            ${snapshot.isDragging ? 'shadow-xl scale-[1.02] rotate-2 ring-2 ring-indigo-500/20 z-50' : 'hover:shadow-md z-10'}
           `}
         >
-          {/* Title */}
-          <h4 className={`font-bold mb-3 leading-snug text-sm ${style.text}`}>
-            {task.title}
-          </h4>
+          {/* Header with Title and Edit Button */}
+          <div className="flex justify-between items-start gap-2 mb-3">
+            <h4 className={`font-bold leading-snug text-sm ${style.text}`}>
+              {task.title}
+            </h4>
+            {onEdit && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(task);
+                }}
+                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-all shrink-0"
+              >
+                <Edit2 size={14} />
+              </button>
+            )}
+          </div>
 
           {/* Footer (Date) */}
           <div className={`flex items-center gap-1.5 text-[11px] font-bold ${style.iconColor} bg-white/50 px-2 py-1 rounded-md w-fit`}>

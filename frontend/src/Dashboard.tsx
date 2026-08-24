@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Plus, Search, Bell, Clock, CheckCircle, FolderOpen, Activity, Loader2 } from 'lucide-react';
+import { Plus, Search, Clock, CheckCircle, FolderOpen, Activity, Loader2, Edit2 } from 'lucide-react';
 import { AuthContext } from './App';
 import axios from 'axios';
 import Sidebar from './Sidebar';
+import NotificationBell from './NotificationBell';
 import { useNavigate } from 'react-router-dom';
 import AddTaskModal from './AddTaskModal';
 import { Project, Task } from './types';
@@ -35,7 +36,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const username = user?.username || "user";
@@ -83,7 +85,7 @@ export default function Dashboard() {
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       
       {/* Sidebar */}
-      <Sidebar onAddTask={() => setIsModalOpen(true)} />
+      <Sidebar onAddTask={() => { setShowTaskModal(true); setEditingTask(null); }} />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col p-8 overflow-y-auto">
@@ -110,9 +112,7 @@ export default function Dashboard() {
                 className="outline-none text-sm text-gray-600 bg-transparent w-48 font-medium" 
               />
             </div>
-            <button className="text-gray-400 hover:text-indigo-500 transition-colors p-2 bg-white rounded-2xl shadow-sm border border-gray-100">
-              <Bell size={20} strokeWidth={2.5} />
-            </button>
+            <NotificationBell />
             <div 
               onClick={() => navigate('/settings')}
               className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-amber-500 flex items-center justify-center text-white font-bold cursor-pointer shadow-lg shadow-amber-500/20 hover:scale-105 transition-transform"
@@ -231,13 +231,20 @@ export default function Dashboard() {
                   <div key={task.id} className="flex items-center justify-between p-4 rounded-2xl hover:bg-gray-50 border border-gray-50 transition-colors group cursor-pointer">
                     <div className="flex items-center gap-4">
                       <div className={`w-3 h-3 rounded-full ${task.priority === 'high' ? 'bg-red-500 shadow-red-500/50' : task.priority === 'low' ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-amber-500 shadow-amber-500/50'} shadow-sm`} />
-                      <span className="font-bold text-gray-800">{task.title}</span>
+                      <span className="font-bold text-gray-800 line-clamp-1">{task.title}</span>
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="text-xs font-extrabold px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg uppercase tracking-wider">
                         {task.status.replace('-', ' ')}
                       </span>
-                      {task.due_date && <span className="text-sm font-semibold text-gray-400">{task.due_date}</span>}
+                      {task.due_date && <span className="text-sm font-semibold text-gray-400 w-20 text-right">{task.due_date}</span>}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setEditingTask(task); setShowTaskModal(true); }}
+                        className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-all shrink-0"
+                        title="Edit Task"
+                      >
+                        <Edit2 size={16} />
+                      </button>
                     </div>
                   </div>
                 ))
@@ -249,9 +256,10 @@ export default function Dashboard() {
       </div>
 
       <AddTaskModal 
-        open={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onTaskAdded={fetchTasks} 
+        open={showTaskModal} 
+        onClose={() => { setShowTaskModal(false); setEditingTask(null); }}
+        onTaskAdded={fetchTasks}
+        editingTask={editingTask}
       />
     </div>
   );

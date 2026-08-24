@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { X, ClipboardList, Flag, CheckCircle, Clock, PlayCircle } from 'lucide-react';
+import { Task } from './types';
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -8,13 +9,30 @@ interface AddTaskModalProps {
   open: boolean;
   onClose: () => void;
   onTaskAdded: () => void;
+  editingTask?: Task | null;
 }
 
-export default function AddTaskModal({ open, onClose, onTaskAdded }: AddTaskModalProps) {
+export default function AddTaskModal({ open, onClose, onTaskAdded, editingTask }: AddTaskModalProps) {
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState('medium');
   const [status, setStatus] = useState('todo');
   const [dueDate, setDueDate] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      if (editingTask) {
+        setTitle(editingTask.title || '');
+        setPriority(editingTask.priority || 'medium');
+        setStatus(editingTask.status || 'todo');
+        setDueDate(editingTask.due_date || '');
+      } else {
+        setTitle('');
+        setPriority('medium');
+        setStatus('todo');
+        setDueDate('');
+      }
+    }
+  }, [open, editingTask]);
 
   if (!open) return null;
 
@@ -24,16 +42,22 @@ export default function AddTaskModal({ open, onClose, onTaskAdded }: AddTaskModa
 
     try {
       const newTask = {
-        id: Date.now(), 
+        id: editingTask ? editingTask.id : Date.now(), 
         title,
         status,
         priority,
         due_date: dueDate || null
       };
 
-      await axios.post(`${API_URL}/api/v1/tasks`, newTask, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      if (editingTask) {
+        await axios.put(`${API_URL}/api/v1/tasks/${editingTask.id}`, newTask, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+      } else {
+        await axios.post(`${API_URL}/api/v1/tasks`, newTask, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+      }
       
       onTaskAdded();
       handleClose();
@@ -85,8 +109,8 @@ export default function AddTaskModal({ open, onClose, onTaskAdded }: AddTaskModa
               <ClipboardList size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Create New Task</h2>
-              <p className="text-sm font-semibold text-indigo-500">Add to your project board</p>
+              <h2 className="text-xl font-bold text-gray-900">{editingTask ? "Edit Task" : "Create New Task"}</h2>
+              <p className="text-sm font-semibold text-indigo-500">{editingTask ? "Update task details" : "Add to your project board"}</p>
             </div>
           </div>
         </div>
@@ -184,7 +208,7 @@ export default function AddTaskModal({ open, onClose, onTaskAdded }: AddTaskModa
               disabled={!title.trim()}
               className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-500 hover:bg-indigo-600 shadow-lg shadow-indigo-500/30 transition-all disabled:opacity-50 disabled:shadow-none"
             >
-              Create Task
+              {editingTask ? "Save Changes" : "Create Task"}
             </button>
           </div>
         </form>

@@ -47,7 +47,7 @@ function Login() {
         <Box sx={{ width: '100%', maxWidth: '440px', margin: '0 auto' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 8, color: '#3f2b96' }}>
             <TaskAlt sx={{ fontSize: 36 }} />
-            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.5px', fontSize: '28px' }}>Plannex.</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.5px', fontSize: '28px' }}>PlanNex.</Typography>
           </Box>
           
           <Typography variant="h3" sx={{ fontWeight: 800, mb: 1, letterSpacing: '-1.5px', color: '#111827', fontSize: '2.8rem' }}>Welcome Back!</Typography>
@@ -205,7 +205,7 @@ function Login() {
             textShadow: '0 4px 12px rgba(0,0,0,0.3)',
             letterSpacing: '-0.5px'
           }}>
-            Manage your tasks in an easy and more efficient way with Plannex.
+            Manage your tasks in an easy and more efficient way with PlanNex.
           </Typography>
         </Box>
       </Box>

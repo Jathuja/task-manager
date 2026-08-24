@@ -19,9 +19,10 @@ interface KanbanBoardProps {
   tasks: Task[];
   setTasks: (tasks: Task[]) => void;
   fetchTasks: () => void;
+  onEditTask?: (task: Task) => void;
 }
 
-export default function KanbanBoard({ tasks, setTasks, fetchTasks }: KanbanBoardProps) {
+export default function KanbanBoard({ tasks, setTasks, fetchTasks, onEditTask }: KanbanBoardProps) {
 
   const onDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -94,7 +95,7 @@ export default function KanbanBoard({ tasks, setTasks, fetchTasks }: KanbanBoard
                       }`}
                     >
                       {columnTasks.map((task, index) => (
-                        <TaskCard key={task.id} task={task} index={index} />
+                        <TaskCard key={task.id} task={task} index={index} onEdit={onEditTask} />
                       ))}
                       {provided.placeholder}
                     </div>

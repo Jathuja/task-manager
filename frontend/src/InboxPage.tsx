@@ -1,20 +1,10 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { Search, Bell, ArrowLeft, MessageSquare, ClipboardList, AlertTriangle, Activity, Trash2, CheckCircle, X } from 'lucide-react';
+import React, { useContext, useState } from 'react';
+import { Search, ArrowLeft, MessageSquare, ClipboardList, AlertTriangle, Activity, Trash2, CheckCircle, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { AuthContext } from './App';
-
-interface Notification {
-  id: string | number;
-  type: string;
-  title: string;
-  text: string;
-  time: string;
-  icon?: React.ReactNode;
-  color?: string;
-  bgColor?: string;
-  read?: boolean;
-}
+import { NotificationContext } from './NotificationContext';
+import NotificationBell from './NotificationBell';
 
 export default function InboxPage() {
   const navigate = useNavigate();
@@ -24,63 +14,7 @@ export default function InboxPage() {
   const userInitial = username[0]?.toUpperCase() || "U";
 
   const [filter, setFilter] = useState('All');
-  const [notifications, setNotifications] = useState<Notification[]>([
-    { id: 1, type: 'message', title: "New Comment", text: "Alex left a comment on 'Website Redesign'.", time: "10 mins ago", color: "text-blue-500", bgColor: "bg-blue-50", read: false },
-    { id: 2, type: 'task', title: "Task Assigned", text: "You were assigned to 'Update API Docs'.", time: "1 hour ago", color: "text-emerald-500", bgColor: "bg-emerald-50", read: false },
-    { id: 3, type: 'alert', title: "Deadline Approaching", text: "'Mobile App V2' is due tomorrow.", time: "5 hours ago", color: "text-amber-500", bgColor: "bg-amber-50", read: true }
-  ]);
-
-  useEffect(() => {
-    if (!username) return;
-    
-    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/notifications/${username}`);
-    
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'task_update') {
-          const newNotif: Notification = {
-            id: Date.now().toString(),
-            type: 'system',
-            title: "Task Updated",
-            text: data.message,
-            time: "Just now",
-            color: "text-indigo-500",
-            bgColor: "bg-indigo-50"
-          };
-          setNotifications(prev => [newNotif, ...prev]);
-        } else {
-          // Handle string messages or other types
-          const newNotif: Notification = {
-            id: Date.now().toString(),
-            type: 'system',
-            title: "New Alert",
-            text: data.message || event.data,
-            time: "Just now",
-            color: "text-indigo-500",
-            bgColor: "bg-indigo-50"
-          };
-          setNotifications(prev => [newNotif, ...prev]);
-        }
-      } catch (e) {
-        // Fallback for non-JSON messages
-        const newNotif: Notification = {
-          id: Date.now().toString(),
-          type: 'system',
-          title: "System Notification",
-          text: event.data,
-          time: "Just now",
-          color: "text-indigo-500",
-          bgColor: "bg-indigo-50"
-        };
-        setNotifications(prev => [newNotif, ...prev]);
-      }
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [username]);
+  const { notifications, markAsRead, deleteNotif, clearAll } = useContext(NotificationContext);
 
   const getIconForType = (type: string, color: string, bgColor: string) => {
     switch (type) {
@@ -91,25 +25,11 @@ export default function InboxPage() {
     }
   };
 
-  const markAsRead = (id: string | number) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  };
-
-  const deleteNotif = (id: string | number) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
-
-  const clearAll = () => {
-    setNotifications([]);
-  };
-
   const filteredNotifications = notifications.filter(n => {
     if (filter === 'Unread') return !n.read;
     if (filter === 'Alerts') return n.type === 'alert';
     return true;
   });
-
-  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -133,14 +53,7 @@ export default function InboxPage() {
               <Search size={20} className="text-gray-400 mr-2" />
               <input type="text" placeholder="Search..." className="outline-none text-sm text-gray-600 bg-transparent" />
             </div>
-            <button className="text-gray-500 hover:text-gray-700 relative">
-              <Bell size={20} />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-gray-50 text-[10px] text-white flex items-center justify-center font-bold">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
+            <NotificationBell />
             <div 
               onClick={() => navigate('/settings')} 
               className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold cursor-pointer"
