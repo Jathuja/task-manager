@@ -10,6 +10,8 @@ import SettingsPage from "./SettingsPage";
 import TrackingPage from "./TrackingPage";
 import ProjectsPage from "./ProjectsPage";
 import InboxPage from "./InboxPage";
+import MyTasksPage from "./MyTasksPage";
+import ProjectDetailsPage from "./ProjectDetailsPage";
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { User } from "./types";
 import { NotificationProvider } from './NotificationContext';
@@ -85,10 +87,12 @@ export default function App() {
             <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
             
             <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+            <Route path="/my-tasks" element={user ? <MyTasksPage /> : <Navigate to="/login" />} />
             <Route path="/calendar" element={user ? <CalendarPage /> : <Navigate to="/login" />} />
             <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/login" />} />
             <Route path="/tracking" element={user ? <TrackingPage /> : <Navigate to="/login" />} />
             <Route path="/projects" element={user ? <ProjectsPage /> : <Navigate to="/login" />} />
+            <Route path="/projects/:id" element={user ? <ProjectDetailsPage /> : <Navigate to="/login" />} />
             <Route path="/inbox" element={user ? <InboxPage /> : <Navigate to="/login" />} />
           </Routes>
         </Router>

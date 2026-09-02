@@ -21,6 +21,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -60,8 +61,17 @@ export default function ProjectsPage() {
     const projectTasks = tasks.filter(t => t.project_id === projectId);
     if (projectTasks.length === 0) return { label: 'On Track', color: 'bg-emerald-500' };
 
-    const overdueCount = projectTasks.filter(t => t.status !== 'done' && t.due_date && new Date(t.due_date) < new Date()).length;
-    const highPriorityPending = projectTasks.filter(t => t.status !== 'done' && t.priority === 'high').length;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const overdueCount = projectTasks.filter(t => {
+      if (t.status === 'done' || !t.due_date) return false;
+      const dueDate = new Date(t.due_date);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate < today;
+    }).length;
+
+    const highPriorityPending = projectTasks.filter(t => t.status !== 'done' && (t.priority === 'high' || t.priority === '🔴 High')).length;
 
     if (overdueCount > 0) return { label: 'Behind Schedule', color: 'bg-red-500' };
     if (highPriorityPending > 0) return { label: 'At Risk', color: 'bg-amber-500' };
@@ -90,6 +100,10 @@ export default function ProjectsPage() {
     }
   };
 
+  const filteredProjects = projects.filter(p =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden relative">
       
@@ -110,7 +124,13 @@ export default function ProjectsPage() {
           <div className="flex items-center gap-4">
             <div className="bg-white px-4 py-2 rounded-full shadow-sm flex items-center border border-gray-100">
               <Search size={20} className="text-gray-400 mr-2" />
-              <input type="text" placeholder="Search projects..." className="outline-none text-sm text-gray-600 bg-transparent" />
+              <input
+                type="text"
+                placeholder="Search projects..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="outline-none text-sm text-gray-600 bg-transparent w-48"
+              />
             </div>
             <NotificationBell />
             <div 
@@ -141,9 +161,11 @@ export default function ProjectsPage() {
            <div className="text-center mt-10 text-gray-500 font-bold">Loading workspaces...</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {projects.length === 0 ? (
-               <div className="col-span-full text-center text-gray-500 py-10">No projects found. Create one!</div>
-            ) : projects.map((project, index) => {
+            {filteredProjects.length === 0 ? (
+               <div className="col-span-full text-center text-gray-500 py-10">
+                 {searchQuery ? `No projects found matching "${searchQuery}".` : 'No projects found. Create one!'}
+               </div>
+            ) : filteredProjects.map((project, index) => {
               const badge = getCategoryBadge(project.category);
               const health = getProjectHealth(project.id);
               const progress = getProjectProgress(project.id);
@@ -168,7 +190,11 @@ export default function ProjectsPage() {
               else if (statusVal === "Cancelled") statusColor = "text-red-600 bg-red-50 border-red-100";
 
               return (
-                <div key={project.id || index} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-lg transition-all cursor-pointer group flex flex-col relative h-full">
+                <div 
+                  key={project.id || index} 
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                  className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-lg transition-all cursor-pointer group flex flex-col relative h-full"
+                >
                   
                   {/* Top Row: Health, Actions & Badge */}
                   <div className="flex justify-between items-start mb-6">
@@ -271,20 +297,14 @@ export default function ProjectsPage() {
               <form 
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  const target = e.target as typeof e.target & {
-                    name: { value: string };
-                    category: { value: string };
-                    description: { value: string };
-                    priority: { value: string };
-                    status: { value: string };
-                  };
                   try {
+                    const formData = new FormData(e.currentTarget);
                     const payload = {
-                      name: target.name.value,
-                      category: target.category.value,
-                      description: target.description.value,
-                      priority: target.priority.value,
-                      status: target.status.value
+                      name: formData.get("name") as string,
+                      category: formData.get("category") as string,
+                      description: formData.get("description") as string,
+                      priority: formData.get("priority") as string,
+                      status: formData.get("status") as string
                     };
                     if (editingProject) {
                       await axios.put(`${API_URL}/api/v1/projects/${editingProject.id}`, payload, {

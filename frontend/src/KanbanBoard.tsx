@@ -2,7 +2,7 @@ import React from 'react';
 import { DragDropContext, Droppable, DropResult } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard';
 import axios from 'axios';
-import { Task } from './types';
+import { Task, Project } from './types';
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -17,12 +17,13 @@ const timeSlots = ["08.00", "09.00", "10.00", "11.00", "12.00", "14.00", "15.00"
 
 interface KanbanBoardProps {
   tasks: Task[];
+  projects?: Project[];
   setTasks: (tasks: Task[]) => void;
   fetchTasks: () => void;
   onEditTask?: (task: Task) => void;
 }
 
-export default function KanbanBoard({ tasks, setTasks, fetchTasks, onEditTask }: KanbanBoardProps) {
+export default function KanbanBoard({ tasks, projects = [], setTasks, fetchTasks, onEditTask }: KanbanBoardProps) {
 
   const onDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -94,9 +95,10 @@ export default function KanbanBoard({ tasks, setTasks, fetchTasks, onEditTask }:
                         snapshot.isDraggingOver ? 'bg-indigo-50/50 rounded-xl' : 'bg-transparent'
                       }`}
                     >
-                      {columnTasks.map((task, index) => (
-                        <TaskCard key={task.id} task={task} index={index} onEdit={onEditTask} />
-                      ))}
+                      {columnTasks.map((task, index) => {
+                        const project = projects.find(p => p.id === task.project_id);
+                        return <TaskCard key={task.id} task={task} index={index} project={project} onEdit={onEditTask} />;
+                      })}
                       {provided.placeholder}
                     </div>
                   )}

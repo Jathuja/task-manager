@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Home, Plus, LayoutGrid, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, Plus, LayoutGrid, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Calendar, dateFnsLocalizer, Event as CalendarEvent } from 'react-big-calendar';
 import format from 'date-fns/format';
 import parse from 'date-fns/parse';
@@ -13,7 +13,7 @@ import AddTaskModal from './AddTaskModal';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import KanbanBoard from './KanbanBoard';
-import { Task } from './types';
+import { Task, Project } from './types';
 import NotificationBell from './NotificationBell';
 
 const locales = {
@@ -84,39 +84,55 @@ export default function CalendarPage() {
   const avatarUrl = user?.profile_picture_url || "";
   const userInitial = username[0]?.toUpperCase();
 
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedFilter, setSelectedFilter] = useState('all');
   const [events, setEvents] = useState<CustomEvent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [viewMode, setViewMode] = useState<'calendar' | 'kanban'>('kanban');
 
+  // Calendar navigation state
+  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
+
   const fetchTasks = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/v1/tasks`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      const [taskRes, projRes] = await Promise.all([
+        axios.get(`${API_URL}/api/v1/tasks`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+        axios.get(`${API_URL}/api/v1/projects`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      ]);
       
-      setTasks(res.data);
-
-      const calendarEvents = res.data
-        .filter((task: any) => task.due_date)
-        .map((task: any) => ({
-          title: task.title,
-          start: new Date(task.due_date),
-          end: new Date(task.due_date),
-          allDay: true,
-          resource: task
-        }));
-        
-      setEvents(calendarEvents);
+      setTasks(taskRes.data);
+      setProjects(projRes.data);
     } catch (err) {
-      console.error("Failed to fetch tasks for calendar", err);
+      console.error("Failed to fetch data for calendar", err);
     }
   };
 
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  const filteredTasks = tasks.filter(t => {
+    if (selectedFilter === 'all') return true;
+    if (selectedFilter === 'independent') return !t.project_id;
+    return t.project_id === selectedFilter;
+  });
+
+  const calendarEvents = filteredTasks
+    .filter((task: any) => task.due_date)
+    .map((task: any) => {
+      const project = projects.find(p => p.id === task.project_id);
+      const title = project ? `${task.title} (🔵 ${project.name})` : task.title;
+      return {
+        title: title,
+        start: new Date(task.due_date),
+        end: new Date(task.due_date),
+        allDay: true,
+        resource: task
+      };
+    });
 
   const eventStyleGetter = (event: CustomEvent) => {
     let backgroundColor = '#6366F1'; // Default Indigo
@@ -154,8 +170,24 @@ export default function CalendarPage() {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-6">
+            <button onClick={() => navigate('/dashboard')} className="p-2 bg-white rounded-full shadow-sm text-indigo-500 hover:bg-gray-50 border border-gray-100" title="Back to Dashboard">
+              <ArrowLeft size={20} />
+            </button>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Project Board</h1>
             
+            {/* Project Filter */}
+            <select 
+              value={selectedFilter} 
+              onChange={(e) => setSelectedFilter(e.target.value)}
+              className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="all">All Tasks</option>
+              <option value="independent">Independent Tasks</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+
             {/* View Switcher */}
             <div className="bg-white p-1 rounded-xl shadow-sm border border-gray-100 flex items-center">
               <button 
@@ -193,18 +225,22 @@ export default function CalendarPage() {
         {/* Content Container */}
         {viewMode === 'kanban' ? (
           <div className="flex-1 overflow-hidden">
-            <KanbanBoard tasks={tasks} setTasks={setTasks} fetchTasks={fetchTasks} onEditTask={(t) => { setEditingTask(t); setIsModalOpen(true); }} />
+            <KanbanBoard tasks={filteredTasks} projects={projects} setTasks={setTasks} fetchTasks={fetchTasks} onEditTask={(t) => { setEditingTask(t); setIsModalOpen(true); }} />
           </div>
         ) : (
           <div className="flex-1 bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
             <Calendar
               localizer={localizer}
-              events={events}
+              events={calendarEvents}
               startAccessor="start"
               endAccessor="end"
               style={{ height: '100%', fontFamily: '"Inter", sans-serif' }}
               eventPropGetter={eventStyleGetter}
               views={['month', 'week', 'day']}
+              view={calendarView}
+              date={calendarDate}
+              onView={(view: any) => setCalendarView(view)}
+              onNavigate={(date: Date) => setCalendarDate(date)}
               components={{
                 toolbar: CustomToolbar
               }}

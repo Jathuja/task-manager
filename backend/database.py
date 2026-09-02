@@ -14,3 +14,6 @@ database = client.task_manager
 task_collection = database.get_collection("tasks")
 project_collection = database.get_collection("projects")
 user_collection = database.get_collection("users")
+milestone_collection = database.get_collection("milestones")
+activity_collection = database.get_collection("activity_logs")
+alerts_collection = database.get_collection("alerts")

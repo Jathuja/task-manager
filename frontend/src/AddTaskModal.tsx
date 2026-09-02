@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { X, ClipboardList, Flag, CheckCircle, Clock, PlayCircle } from 'lucide-react';
-import { Task } from './types';
+import { Task, Project } from './types';
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -10,29 +10,56 @@ interface AddTaskModalProps {
   onClose: () => void;
   onTaskAdded: () => void;
   editingTask?: Task | null;
+  defaultProjectId?: string;
 }
 
-export default function AddTaskModal({ open, onClose, onTaskAdded, editingTask }: AddTaskModalProps) {
+export default function AddTaskModal({ open, onClose, onTaskAdded, editingTask, defaultProjectId }: AddTaskModalProps) {
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState('medium');
   const [status, setStatus] = useState('todo');
   const [dueDate, setDueDate] = useState('');
+  const [category, setCategory] = useState('');
+  const [projectId, setProjectId] = useState('');
+  const [milestoneId, setMilestoneId] = useState('');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [milestones, setMilestones] = useState<any[]>([]);
 
   useEffect(() => {
     if (open) {
+      axios.get(`${API_URL}/api/v1/projects`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+        .then(res => setProjects(res.data))
+        .catch(console.error);
+
       if (editingTask) {
         setTitle(editingTask.title || '');
         setPriority(editingTask.priority || 'medium');
         setStatus(editingTask.status || 'todo');
         setDueDate(editingTask.due_date || '');
+        setCategory(editingTask.category || '');
+        setProjectId(editingTask.project_id || '');
+        setMilestoneId(editingTask.milestone_id || '');
       } else {
         setTitle('');
         setPriority('medium');
         setStatus('todo');
         setDueDate('');
+        setCategory('');
+        setProjectId(defaultProjectId || '');
+        setMilestoneId('');
       }
     }
-  }, [open, editingTask]);
+  }, [open, editingTask, defaultProjectId]);
+
+  useEffect(() => {
+    if (projectId) {
+      axios.get(`${API_URL}/api/v1/milestones?project_id=${projectId}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+        .then(res => setMilestones(res.data))
+        .catch(console.error);
+    } else {
+      setMilestones([]);
+      setMilestoneId('');
+    }
+  }, [projectId]);
 
   if (!open) return null;
 
@@ -46,7 +73,10 @@ export default function AddTaskModal({ open, onClose, onTaskAdded, editingTask }
         title,
         status,
         priority,
-        due_date: dueDate || null
+        due_date: dueDate || null,
+        category: category || null,
+        project_id: projectId || null,
+        milestone_id: milestoneId || null
       };
 
       if (editingTask) {
@@ -76,6 +106,9 @@ export default function AddTaskModal({ open, onClose, onTaskAdded, editingTask }
     setPriority('medium');
     setStatus('todo');
     setDueDate('');
+    setCategory('');
+    setProjectId('');
+    setMilestoneId('');
     onClose();
   };
 
@@ -192,6 +225,56 @@ export default function AddTaskModal({ open, onClose, onTaskAdded, editingTask }
                 onChange={(e) => setDueDate(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm text-gray-900 font-medium"
               />
+            </div>
+
+            {/* Project Selection */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Project</label>
+              <select
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm text-gray-900 font-medium"
+              >
+                <option value="">No Project (Standalone Task)</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Milestone Selection (Only if Project is selected) */}
+            {projectId && milestones.length > 0 && (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Project Milestone</label>
+                <select
+                  value={milestoneId}
+                  onChange={(e) => setMilestoneId(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm text-gray-900 font-medium"
+                >
+                  <option value="">No Milestone</option>
+                  {milestones.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Category / Module */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Module / Category</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm text-gray-900 font-medium"
+              >
+                <option value="">Uncategorized</option>
+                <option value="Frontend">Frontend</option>
+                <option value="Backend">Backend</option>
+                <option value="Design">Design</option>
+                <option value="DevOps">DevOps</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Research">Research</option>
+              </select>
             </div>
           </div>
 

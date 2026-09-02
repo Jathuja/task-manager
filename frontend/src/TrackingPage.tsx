@@ -23,6 +23,7 @@ export default function TrackingPage() {
   const [loading, setLoading] = useState(true);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState('all');
 
   const fetchTasksAndProjects = async () => {
     try {
@@ -44,13 +45,22 @@ export default function TrackingPage() {
   }, []);
 
   // Compute metrics
-  const highPriorityOverdue = tasks.filter(t => t.priority === 'high' && t.status !== 'done');
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(t => t.status === 'done').length;
+  const filteredTasks = tasks.filter(t => {
+    if (selectedFilter === 'all') return true;
+    if (selectedFilter === 'independent') return !t.project_id;
+    return t.project_id === selectedFilter;
+  });
+
+  const today = new Date().toISOString().split('T')[0];
+  const highPriorityOverdue = filteredTasks.filter(t => 
+    t.status !== 'done' && (t.priority === 'high' || (t.due_date && t.due_date < today))
+  );
+  const totalTasks = filteredTasks.length;
+  const completedTasks = filteredTasks.filter(t => t.status === 'done').length;
   
   // Aggregate by category
   const categories: Record<string, { total: number, completed: number }> = {};
-  tasks.forEach(t => {
+  filteredTasks.forEach(t => {
     const cat = t.category || "Uncategorized";
     if (!categories[cat]) categories[cat] = { total: 0, completed: 0 };
     categories[cat].total += 1;
@@ -108,6 +118,17 @@ export default function TrackingPage() {
               <ArrowLeft size={20} />
             </button>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Time & Milestone Tracking</h1>
+            <select 
+              value={selectedFilter} 
+              onChange={(e) => setSelectedFilter(e.target.value)}
+              className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100 text-sm font-bold text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-500 ml-4"
+            >
+              <option value="all">Track: All Tasks</option>
+              <option value="independent">Track: Independent</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>Track: {p.name}</option>
+              ))}
+            </select>
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-white px-4 py-2 rounded-full shadow-sm flex items-center border border-gray-100">

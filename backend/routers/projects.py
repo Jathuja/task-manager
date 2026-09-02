@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
-from database import project_collection
+from database import project_collection, task_collection
 from auth import get_current_user
 from schemas import ProjectCreate, ProjectResponse
 from bson import ObjectId
@@ -44,6 +44,7 @@ async def create_project(project: ProjectCreate, current_user: dict = Depends(ge
     result = await project_collection.insert_one(new_project)
     new_project["_id"] = result.inserted_id
     return project_helper(new_project)
+
 @router.delete("/{project_id}")
 async def delete_project(project_id: str, current_user: dict = Depends(get_current_user)):
     try:
@@ -53,7 +54,9 @@ async def delete_project(project_id: str, current_user: dict = Depends(get_curre
         
     delete_result = await project_collection.delete_one({"_id": obj_id, "owner_id": current_user["username"]})
     if delete_result.deleted_count == 1:
-        return {"message": "Project deleted successfully"}
+        # Cascade delete tasks
+        await task_collection.delete_many({"project_id": project_id, "user_id": current_user["username"]})
+        return {"message": "Project and associated tasks deleted successfully"}
     raise HTTPException(status_code=404, detail="Project not found")
 
 @router.put("/{project_id}", response_model=ProjectResponse)

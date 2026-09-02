@@ -25,8 +25,18 @@ export interface Task {
   priority: string;
   due_date?: string;
   project_id?: string;
+  milestone_id?: string;
   category?: string;
   order: number;
   assignee_id?: string;
   created_at?: string;
+}
+
+export interface Milestone {
+  id: string;
+  name: string;
+  project_id: string;
+  status: string;
+  due_date?: string;
+  created_at: string;
 }

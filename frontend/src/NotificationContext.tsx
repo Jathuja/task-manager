@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { AuthContext } from './App';
+import axios from 'axios';
 
 export interface Notification {
   id: string | number;
@@ -33,14 +34,34 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useContext(AuthContext);
   const username = user?.username;
 
-  const [notifications, setNotifications] = useState<Notification[]>([
-    { id: 1, type: 'message', title: "New Comment", text: "Alex left a comment on 'Website Redesign'.", time: "10 mins ago", color: "text-blue-500", bgColor: "bg-blue-50", read: false },
-    { id: 2, type: 'task', title: "Task Assigned", text: "You were assigned to 'Update API Docs'.", time: "1 hour ago", color: "text-emerald-500", bgColor: "bg-emerald-50", read: false },
-    { id: 3, type: 'alert', title: "Deadline Approaching", text: "'Mobile App V2' is due tomorrow.", time: "5 hours ago", color: "text-amber-500", bgColor: "bg-amber-50", read: true }
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
     if (!username) return;
+    
+    // Fetch dynamic alerts
+    const fetchAlerts = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`http://127.0.0.1:8000/api/v1/alerts`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const fetchedAlerts = res.data.map((a: any) => ({
+          id: a.id,
+          type: 'alert',
+          title: a.title,
+          text: a.message,
+          time: new Date(a.created_at).toLocaleString(),
+          color: a.type === 'warning' ? 'text-red-500' : 'text-amber-500',
+          bgColor: a.type === 'warning' ? 'bg-red-50' : 'bg-amber-50',
+          read: a.is_read
+        }));
+        setNotifications(fetchedAlerts);
+      } catch (err) {
+        console.error("Failed to fetch alerts", err);
+      }
+    };
+    fetchAlerts();
     
     const ws = new WebSocket(`ws://127.0.0.1:8000/ws/notifications/${username}`);
     
@@ -89,16 +110,26 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [username]);
 
-  const markAsRead = (id: string | number) => {
+  const markAsRead = async (id: string | number) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    try {
+      await axios.put(`http://127.0.0.1:8000/api/v1/alerts/${id}/read`, {}, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+    } catch (e) {}
   };
 
   const deleteNotif = (id: string | number) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  const clearAll = () => {
+  const clearAll = async () => {
     setNotifications([]);
+    try {
+      await axios.delete(`http://127.0.0.1:8000/api/v1/alerts/clear`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+    } catch (e) {}
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;

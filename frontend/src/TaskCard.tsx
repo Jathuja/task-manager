@@ -6,6 +6,7 @@ import { Task } from "./types";
 interface TaskCardProps {
   task: Task;
   index: number;
+  project?: any;
   onEdit?: (task: Task) => void;
 }
 
@@ -15,7 +16,7 @@ const statusStyles: Record<string, { bg: string, borderLeft: string, text: strin
   "done": { bg: 'bg-[#E3F8F5]', borderLeft: 'border-l-[#02B895]', text: 'text-[#01886D]', iconColor: 'text-[#02B895]' },
 };
 
-export default function TaskCard({ task, index, onEdit }: TaskCardProps) {
+export default function TaskCard({ task, index, project, onEdit }: TaskCardProps) {
   const style = statusStyles[task.status] || statusStyles["todo"];
 
   return (
@@ -50,10 +51,17 @@ export default function TaskCard({ task, index, onEdit }: TaskCardProps) {
             )}
           </div>
 
-          {/* Footer (Date) */}
-          <div className={`flex items-center gap-1.5 text-[11px] font-bold ${style.iconColor} bg-white/50 px-2 py-1 rounded-md w-fit`}>
-            <Clock size={12} strokeWidth={2.5} />
-            <span>{task.due_date || "No Deadline"}</span>
+          {/* Footer (Date & Project) */}
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <div className={`flex items-center gap-1.5 text-[11px] font-bold ${style.iconColor} bg-white/50 px-2 py-1 rounded-md w-fit`}>
+              <Clock size={12} strokeWidth={2.5} />
+              <span>{task.due_date || "No Deadline"}</span>
+            </div>
+            {project && (
+              <div className="flex items-center gap-1 text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md w-fit">
+                <span>🔵 {project.name}</span>
+              </div>
+            )}
           </div>
         </div>
       )}

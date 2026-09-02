@@ -16,7 +16,7 @@ app = FastAPI(title="Task Manager API")
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3002"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -103,7 +103,11 @@ async def register(user: UserCreate):
 
 @app.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = await user_collection.find_one({"username": form_data.username})
+    try:
+        user = await user_collection.find_one({"username": form_data.username})
+    except Exception as e:
+        raise HTTPException(status_code=503, detail="Database connection error")
+
     if not user or not verify_password(form_data.password, user["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -308,6 +312,12 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
 # --- ROUTERS ---
 from routers.projects import router as projects_router
 from routers.tasks import router as tasks_router
+from routers.milestones import router as milestones_router
+from routers.activity import router as activity_router
+from routers.alerts import router as alerts_router
 
 app.include_router(projects_router)
 app.include_router(tasks_router)
+app.include_router(milestones_router)
+app.include_router(activity_router)
+app.include_router(alerts_router)

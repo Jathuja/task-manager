@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Plus, Search, Clock, CheckCircle, FolderOpen, Activity, Loader2, Edit2 } from 'lucide-react';
+import { Plus, Search, Clock, CheckCircle, FolderOpen, Activity, Loader2, Edit2, Trash2 } from 'lucide-react';
 import { AuthContext } from './App';
 import axios from 'axios';
 import Sidebar from './Sidebar';
@@ -39,21 +39,22 @@ export default function Dashboard() {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [projects, setProjects] = useState<Project[]>([]);
 
   const username = user?.username || "user";
   const avatarUrl = user?.profile_picture_url || "";
   const userInitial = username[0]?.toUpperCase() || "U";
 
-  const fetchTasks = async () => {
+  const fetchData = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/v1/tasks`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      // Sort tasks by reversing the array so newest added are first (or sort by created_at if available)
-      const sorted = res.data.reverse();
-      setTasks(sorted);
+      const [taskRes, projRes] = await Promise.all([
+        axios.get(`${API_URL}/api/v1/tasks`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+        axios.get(`${API_URL}/api/v1/projects`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      ]);
+      setTasks(taskRes.data.reverse());
+      setProjects(projRes.data);
     } catch (err) {
-      console.error("Failed to fetch tasks", err);
+      console.error("Failed to fetch data", err);
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (user) {
-      fetchTasks();
+      fetchData();
     }
   }, [user]);
 
@@ -232,19 +233,48 @@ export default function Dashboard() {
                     <div className="flex items-center gap-4">
                       <div className={`w-3 h-3 rounded-full ${task.priority === 'high' ? 'bg-red-500 shadow-red-500/50' : task.priority === 'low' ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-amber-500 shadow-amber-500/50'} shadow-sm`} />
                       <span className="font-bold text-gray-800 line-clamp-1">{task.title}</span>
+                      {task.project_id && (
+                        <span className="text-[10px] font-extrabold px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md">
+                          🔵 {projects.find(p => p.id === task.project_id)?.name || 'Project'}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="text-xs font-extrabold px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg uppercase tracking-wider">
                         {task.status.replace('-', ' ')}
                       </span>
-                      {task.due_date && <span className="text-sm font-semibold text-gray-400 w-20 text-right">{task.due_date}</span>}
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); setEditingTask(task); setShowTaskModal(true); }}
-                        className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-all shrink-0"
-                        title="Edit Task"
-                      >
-                        <Edit2 size={16} />
-                      </button>
+                      {task.due_date && (
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-md whitespace-nowrap">
+                          <Clock size={12} strokeWidth={2.5} />
+                          <span>{task.due_date}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setEditingTask(task); setShowTaskModal(true); }}
+                          className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-all shrink-0"
+                          title="Edit Task"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (window.confirm("Are you sure you want to delete this task?")) {
+                              try {
+                                await axios.delete(`${API_URL}/api/v1/tasks/${task.id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }});
+                                fetchData();
+                              } catch (err) {
+                                console.error("Failed to delete task", err);
+                              }
+                            }
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all shrink-0"
+                          title="Delete Task"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -258,7 +288,7 @@ export default function Dashboard() {
       <AddTaskModal 
         open={showTaskModal} 
         onClose={() => { setShowTaskModal(false); setEditingTask(null); }}
-        onTaskAdded={fetchTasks}
+        onTaskAdded={fetchData}
         editingTask={editingTask}
       />
     </div>

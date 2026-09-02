@@ -5,6 +5,7 @@ from auth import get_current_user
 from schemas import TaskCreate, TaskResponse
 from bson import ObjectId
 import datetime
+from routers.activity import log_activity
 
 router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
 
@@ -43,6 +44,16 @@ async def add_task(task: TaskCreate, current_user: dict = Depends(get_current_us
     task_dict["created_at"] = datetime.datetime.now().isoformat()
     
     await task_collection.insert_one(task_dict)
+    
+    # Log activity
+    if task_dict.get("project_id"):
+        await log_activity(
+            "Task Created", 
+            f"Created task '{task_dict['title']}'", 
+            current_user["username"], 
+            task_dict["project_id"]
+        )
+        
     return task_dict
 
 from websocket_manager import manager
@@ -73,13 +84,33 @@ async def update_task(task_id: int, task_update: TaskCreate, current_user: dict 
             "status": task_data["status"]
         })
         await manager.send_personal_message(notification_msg, current_user["username"])
+        
+        # Log activity
+        if task_data.get("project_id"):
+            await log_activity(
+                "Task Updated", 
+                f"Updated task '{task_data['title']}' to status '{task_data['status']}'", 
+                current_user["username"], 
+                task_data["project_id"]
+            )
+            
         return task_data
     raise HTTPException(status_code=404, detail="Task not found")
 
 @router.delete("/{task_id}")
 async def delete_task(task_id: int, current_user: dict = Depends(get_current_user)):
+    # First get the task to log it
+    task = await task_collection.find_one({"id": task_id, "user_id": current_user["username"]})
+    
     delete_result = await task_collection.delete_one({"id": task_id, "user_id": current_user["username"]})
     if delete_result.deleted_count == 1:
+        if task and task.get("project_id"):
+            await log_activity(
+                "Task Deleted", 
+                f"Deleted task '{task['title']}'", 
+                current_user["username"], 
+                task["project_id"]
+            )
         return {"message": "Task deleted successfully"}
     raise HTTPException(status_code=404, detail="Task not found")
 

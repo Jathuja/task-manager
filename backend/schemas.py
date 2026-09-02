@@ -51,12 +51,23 @@ class ProjectResponse(ProjectCreate):
     owner_id: str
     created_at: str
 
+class MilestoneCreate(BaseModel):
+    name: str
+    project_id: str
+    status: str = "Pending"
+    due_date: Optional[str] = None
+
+class MilestoneResponse(MilestoneCreate):
+    id: str
+    created_at: str
+
 class TaskBase(BaseModel):
     title: str
     status: str = "todo"
     priority: str = "medium"
     due_date: Optional[str] = None
     project_id: Optional[str] = None
+    milestone_id: Optional[str] = None
     category: Optional[str] = None
     order: Optional[int] = 0
     assignee_id: Optional[str] = None

@@ -8,7 +8,8 @@ import {
   Inbox, 
   Settings,
   LogOut,
-  CheckCircle2
+  CheckCircle2,
+  ListTodo
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from './App';
@@ -72,8 +73,9 @@ export default function Sidebar({ onAddTask }: SidebarProps) {
       <div className="flex-1 flex flex-col gap-1.5 overflow-y-auto overflow-x-hidden pr-2 -mr-2">
         <span className="text-[11px] font-bold text-white/50 mt-2 mb-2 ml-4 uppercase tracking-wider">Menu</span>
         <NavItem icon={<LayoutDashboard size={20} strokeWidth={2.5} />} text="Dashboard" path="/dashboard" />
-        <NavItem icon={<Activity size={20} strokeWidth={2.5} />} text="Tracking" path="/tracking" />
+        <NavItem icon={<ListTodo size={20} strokeWidth={2.5} />} text="My Tasks" path="/my-tasks" />
         <NavItem icon={<FolderOpen size={20} strokeWidth={2.5} />} text="Projects" path="/projects" />
+        <NavItem icon={<Activity size={20} strokeWidth={2.5} />} text="Tracking" path="/tracking" />
         <NavItem icon={<CalendarClock size={20} strokeWidth={2.5} />} text="Calendar" path="/calendar" />
         <NavItem icon={<Inbox size={20} strokeWidth={2.5} />} text="Messages" path="/inbox" />
         
